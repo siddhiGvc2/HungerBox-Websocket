@@ -1,11 +1,11 @@
 const mqtt = require('mqtt');
 const WebSocket = require('ws');
 
-const MQTT_BROKER_URL = 'mqtt://159.89.248.57'; // Public test broker URL; change as needed
+const MQTT_BROKER_URL = 'mqtt://157.245.29.144'; // Public test broker URL; change as needed
 const MQTT_TOPIC = 'GVC/KP/ALL';
 
 const MQTT_USERNAME = 'kpmqtt'; // Sample username
-const MQTT_PASSWORD = 'KP*tcpeash?101PW'; // Sample password
+const MQTT_PASSWORD = 'KP*sandbox@101PW'; // Sample password
 
 // Connect to the MQTT broker with username and password
 const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
@@ -29,7 +29,7 @@ mqttClient.on('error', (err) => {
 });
 
 // Create a WebSocket server
-const wss = new WebSocket.Server({ port: 1010 });
+const wss = new WebSocket.Server({ port: 2020 });
 
 wss.on('connection', (ws) => {
   console.log('WebSocket client connected');
