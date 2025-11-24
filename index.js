@@ -1,0 +1,61 @@
+const mqtt = require('mqtt');
+const WebSocket = require('ws');
+
+const MQTT_BROKER_URL = 'mqtt://159.89.248.57'; // Public test broker URL; change as needed
+const MQTT_TOPIC = 'GVC/KP/ALL';
+
+const MQTT_USERNAME = 'kpmqtt'; // Sample username
+const MQTT_PASSWORD = 'KP*tcpeash?101PW'; // Sample password
+
+// Connect to the MQTT broker with username and password
+const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
+  username: MQTT_USERNAME,
+  password: MQTT_PASSWORD,
+});
+
+mqttClient.on('connect', () => {
+  console.log('Connected to MQTT broker');
+  mqttClient.subscribe(MQTT_TOPIC, (err) => {
+    if (err) {
+      console.error('Failed to subscribe to topic:', MQTT_TOPIC);
+    } else {
+      console.log(`Subscribed to MQTT topic: ${MQTT_TOPIC}`);
+    }
+  });
+});
+
+mqttClient.on('error', (err) => {
+  console.error('MQTT error:', err);
+});
+
+// Create a WebSocket server
+const wss = new WebSocket.Server({ port: 1010 });
+
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected');
+
+  // Receive messages from WebSocket clients and publish to MQTT
+  ws.on('message', (message) => {
+    console.log('Received from WS client:', message);
+    mqttClient.publish(MQTT_TOPIC, message);
+  });
+
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+  });
+});
+
+// Forward MQTT messages received to all WebSocket clients
+mqttClient.on('message', (topic, message) => {
+  if (topic === MQTT_TOPIC) {
+    const msgString = message.toString();
+    console.log('Received from MQTT:', msgString);
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(msgString);
+      }
+    });
+  }
+});
+
+console.log('WebSocket server started on ws://localhost:1010');
