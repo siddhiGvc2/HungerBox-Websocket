@@ -37,7 +37,19 @@ wss.on('connection', (ws) => {
   // Receive messages from WebSocket clients and publish to MQTT
   ws.on('message', (message) => {
     console.log('Received from WS client:', message);
-    mqttClient.publish(MQTT_TOPIC, message);
+    let parsed;
+    try {
+      parsed = JSON.parse(message);
+      const { topic, payload } = parsed;
+      if (typeof topic === 'string' && typeof payload === 'string') {
+        mqttClient.publish(topic, payload);
+        console.log(`Published to MQTT topic: ${topic}`);
+      } else {
+        console.error('Invalid message format: "topic" and "payload" fields must be strings');
+      }
+    } catch (e) {
+      console.error('Failed to parse message as JSON:', e.message);
+    }
   });
 
   ws.on('close', () => {
