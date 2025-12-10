@@ -29,7 +29,7 @@ mqttClient.on('error', (err) => {
 });
 
 // Create a WebSocket server
-const wss = new WebSocket.Server({ port: 2020 });
+const wss = new WebSocket.Server({ port: 3030 });
 
 wss.on('connection', (ws) => {
   console.log('WebSocket client connected');
