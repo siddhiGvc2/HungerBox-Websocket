@@ -1,73 +1,83 @@
 const mqtt = require('mqtt');
 const WebSocket = require('ws');
+const fs = require('fs');
 
-const MQTT_BROKER_URL = 'mqtt://165.232.180.111'; // Public test broker URL; change as needed
+const MQTT_BROKER_URL = 'mqtts://gvcsystems.com:8883';
 const MQTT_TOPIC = 'HB/ALL';
 
-const MQTT_USERNAME = 'gvcMqttServer'; // Sample username
-const MQTT_PASSWORD = 'gvcMqttServer'; // Sample password
+const MQTT_USERNAME = 'gvcsystems';
+const MQTT_PASSWORD = 'vkbd@070361M';
 
-// Connect to the MQTT broker with username and password
+// Load CA certificate
+const caCert = fs.readFileSync('./ca.crt');
+
+// Connect to MQTTS broker
 const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
   username: MQTT_USERNAME,
   password: MQTT_PASSWORD,
+  ca: caCert,
+  protocol: 'mqtts',
+  rejectUnauthorized: true, // IMPORTANT
+  keepalive: 60,
+  reconnectPeriod: 5000,
 });
 
 mqttClient.on('connect', () => {
-  console.log('Connected to MQTT broker');
+  console.log('✅ Connected to MQTTS broker');
   mqttClient.subscribe(MQTT_TOPIC, (err) => {
     if (err) {
-      console.error('Failed to subscribe to topic:', MQTT_TOPIC);
+      console.error('❌ Failed to subscribe:', err.message);
     } else {
-      console.log(`Subscribed to MQTT topic: ${MQTT_TOPIC}`);
+      console.log(`📡 Subscribed to: ${MQTT_TOPIC}`);
     }
   });
 });
 
 mqttClient.on('error', (err) => {
-  console.error('MQTT error:', err);
+  console.error('❌ MQTT error:', err.message);
 });
 
-// Create a WebSocket server
+mqttClient.on('close', () => {
+  console.log('⚠ MQTT connection closed');
+});
+
+// WebSocket server
 const wss = new WebSocket.Server({ port: 3030 });
 
 wss.on('connection', (ws) => {
-  console.log('WebSocket client connected');
+  console.log('🔌 WebSocket client connected');
 
-  // Receive messages from WebSocket clients and publish to MQTT
   ws.on('message', (message) => {
-    console.log('Received from WS client:', message);
-    let parsed;
     try {
-      parsed = JSON.parse(message);
+      const parsed = JSON.parse(message);
       const { topic, payload } = parsed;
+
       if (typeof topic === 'string' && typeof payload === 'string') {
-        mqttClient.publish(topic, payload);
-        console.log(`Published to MQTT topic: ${topic}`);
+        mqttClient.publish(topic, payload, { qos: 0 });
+        console.log(`➡ WS → MQTT [${topic}]`);
       } else {
-        console.error('Invalid message format: "topic" and "payload" fields must be strings');
+        console.error('❌ Invalid WS message format');
       }
-    } catch (e) {
-      console.error('Failed to parse message as JSON:', e.message);
+    } catch (err) {
+      console.error('❌ WS JSON parse error:', err.message);
     }
   });
 
   ws.on('close', () => {
-    console.log('WebSocket client disconnected');
+    console.log('🔌 WebSocket client disconnected');
   });
 });
 
-// Forward MQTT messages received to all WebSocket clients
+// Forward MQTT → WebSocket
 mqttClient.on('message', (topic, message) => {
-  if (topic === MQTT_TOPIC) {
-    const msgString = message.toString();
-    console.log('Received from MQTT:', msgString);
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(msgString);
-      }
-    });
-  }
+  const msg = message.toString();
+  console.log(`⬅ MQTT → WS [${topic}]:`, msg);
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ topic, payload: msg }));
+    }
+  });
 });
 
-console.log('WebSocket server started on ws://localhost:3030');
+console.log('🚀 WebSocket server running at ws://localhost:3030');
