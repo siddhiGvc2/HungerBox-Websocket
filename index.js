@@ -45,39 +45,43 @@ mqttClient.on('close', () => {
 const wss = new WebSocket.Server({ port: 3030 });
 
 wss.on('connection', (ws) => {
-  console.log('🔌 WebSocket client connected');
+  console.log('WebSocket client connected');
 
+  // Receive messages from WebSocket clients and publish to MQTT
   ws.on('message', (message) => {
+    console.log('Received from WS client:', message);
+    let parsed;
     try {
-      const parsed = JSON.parse(message);
+      parsed = JSON.parse(message);
       const { topic, payload } = parsed;
-
       if (typeof topic === 'string' && typeof payload === 'string') {
-        mqttClient.publish(topic, payload, { qos: 0 });
-        console.log(`➡ WS → MQTT [${topic}]`);
+        mqttClient.publish(topic, payload);
+        console.log(`Published to MQTT topic: ${topic}`);
       } else {
-        console.error('❌ Invalid WS message format');
+        console.error('Invalid message format: "topic" and "payload" fields must be strings');
       }
-    } catch (err) {
-      console.error('❌ WS JSON parse error:', err.message);
+    } catch (e) {
+      console.error('Failed to parse message as JSON:', e.message);
     }
   });
 
   ws.on('close', () => {
-    console.log('🔌 WebSocket client disconnected');
+    console.log('WebSocket client disconnected');
   });
 });
 
-// Forward MQTT → WebSocket
+// Forward MQTT messages received to all WebSocket clients
 mqttClient.on('message', (topic, message) => {
-  const msg = message.toString();
-  console.log(`⬅ MQTT → WS [${topic}]:`, msg);
-
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ topic, payload: msg }));
-    }
-  });
+  if (topic === MQTT_TOPIC) {
+    const msgString = message.toString();
+    console.log('Received from MQTT:', msgString);
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(msgString);
+      }
+    });
+  }
 });
+
 
 console.log('🚀 WebSocket server running at ws://localhost:3030');
